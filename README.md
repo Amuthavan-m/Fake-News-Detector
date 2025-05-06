@@ -48,7 +48,7 @@ The project uses two datasets:
 The system uses a machine learning pipeline with TF-IDF vectorization and a classifier (Logistic Regression, Random Forest, or SVM) to detect fake news.
 
 ## Streamlit Web Interface
-
+ 
 The Streamlit web interface allows users to:
 - Enter a Reddit post text to check if it's fake or real
 - View model performance metrics and visualizations

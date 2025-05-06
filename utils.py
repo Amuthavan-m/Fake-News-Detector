@@ -169,17 +169,40 @@ def get_model_metrics(y_true, y_pred):
     
     return metrics
 
-def save_metrics_plot(metrics, filename='model_metrics.png'):
+def save_metrics_plot(models_or_metrics, metrics_list=None, filename='model_metrics.png'):
     """
     Create and save a bar plot of model metrics
+    Can be used in two ways:
+    1. save_metrics_plot(metrics_dict) - for a single model
+    2. save_metrics_plot(models_list, metrics_list) - for comparing multiple models
     """
-    metrics_to_plot = {k: v for k, v in metrics.items() if k != 'report'}
-    
     plt.figure(figsize=(10, 6))
-    plt.bar(metrics_to_plot.keys(), metrics_to_plot.values())
+    
+    # Case 1: Single model metrics
+    if metrics_list is None:
+        metrics = models_or_metrics
+        metrics_to_plot = {k: v for k, v in metrics.items() if k != 'report'}
+        plt.bar(metrics_to_plot.keys(), metrics_to_plot.values())
+        plt.title('Model Performance Metrics')
+    
+    # Case 2: Multiple models comparison
+    else:
+        models = models_or_metrics
+        metrics_names = ['accuracy', 'precision', 'recall', 'f1_score']
+        x = np.arange(len(models))
+        width = 0.2
+        
+        for i, metric_name in enumerate(metrics_names):
+            values = [metrics[metric_name] for metrics in metrics_list]
+            plt.bar(x + width * (i - 1.5), values, width, label=metric_name.capitalize())
+        
+        plt.xticks(x, models)
+        plt.legend()
+        plt.title('Model Comparison')
+    
     plt.ylim(0, 1.0)
-    plt.title('Model Performance Metrics')
     plt.ylabel('Score')
     plt.tight_layout()
     plt.savefig(f'static/{filename}')
-    plt.close()
+    
+    return plt.gcf()  # Return the figure for closing later

@@ -11,12 +11,20 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from utils import plot_confusion_matrix, plot_feature_importance, get_model_metrics, save_metrics_plot
 
-def load_features():
+def load_features(sample_size=None):
     """
     Load the extracted features and labels
+    Optional: Load only a sample of the data for faster training
     """
     X_train_tfidf = joblib.load('models/X_train_tfidf.pkl')
     y_train = joblib.load('models/y_train.pkl')
+    
+    # Optionally sample a subset of data for faster training
+    if sample_size and sample_size < X_train_tfidf.shape[0]:
+        indices = np.random.choice(X_train_tfidf.shape[0], sample_size, replace=False)
+        X_train_tfidf = X_train_tfidf[indices]
+        y_train = y_train[indices]
+        print(f"Using a sample of {sample_size} examples for faster training")
     
     print(f"Loaded training features: {X_train_tfidf.shape}")
     print(f"Loaded training labels: {y_train.shape}")
@@ -37,23 +45,23 @@ def split_validation_data(X, y, test_size=0.2, random_state=42):
 
 def train_logistic_regression(X_train, y_train, X_val, y_val):
     """
-    Train a Logistic Regression model
+    Train a Logistic Regression model with optimized parameters
     """
     print("\nTraining Logistic Regression model...")
     
-    # Define parameter grid for grid search
+    # Simplified parameter grid for faster training
     param_grid = {
-        'C': [0.1, 1.0, 10.0],
-        'penalty': ['l1', 'l2'],
+        'C': [1.0],  # Reduced from [0.1, 1.0, 10.0]
+        'penalty': ['l2'],  # Reduced from ['l1', 'l2']
         'solver': ['liblinear']
     }
     
     # Initialize model
     lr_model = LogisticRegression(max_iter=1000, random_state=42)
     
-    # Perform grid search
+    # Perform grid search with fewer CV folds
     grid_search = GridSearchCV(
-        lr_model, param_grid, cv=5, scoring='accuracy', n_jobs=-1
+        lr_model, param_grid, cv=3, scoring='accuracy', n_jobs=4  # Reduced CV folds and specific n_jobs
     )
     grid_search.fit(X_train, y_train)
     
@@ -82,23 +90,23 @@ def train_logistic_regression(X_train, y_train, X_val, y_val):
 
 def train_random_forest(X_train, y_train, X_val, y_val):
     """
-    Train a Random Forest model
+    Train a Random Forest model with optimized parameters
     """
     print("\nTraining Random Forest model...")
     
-    # Define parameter grid for grid search
+    # Simplified parameter grid for faster training
     param_grid = {
-        'n_estimators': [100, 200],
-        'max_depth': [None, 10, 20],
-        'min_samples_split': [2, 5]
+        'n_estimators': [100],  # Reduced from [100, 200]
+        'max_depth': [10],      # Reduced from [None, 10, 20]
+        'min_samples_split': [2]  # Reduced from [2, 5]
     }
-    
+     
     # Initialize model
     rf_model = RandomForestClassifier(random_state=42)
     
-    # Perform grid search
+    # Perform grid search with fewer CV folds
     grid_search = GridSearchCV(
-        rf_model, param_grid, cv=5, scoring='accuracy', n_jobs=-1
+        rf_model, param_grid, cv=3, scoring='accuracy', n_jobs=4  # Reduced CV folds and specific n_jobs
     )
     grid_search.fit(X_train, y_train)
     
@@ -127,23 +135,23 @@ def train_random_forest(X_train, y_train, X_val, y_val):
 
 def train_svm(X_train, y_train, X_val, y_val):
     """
-    Train an SVM model
+    Train an SVM model with optimized parameters
     """
     print("\nTraining SVM model...")
     
-    # Define parameter grid for grid search
+    # Simplified parameter grid for faster training
     param_grid = {
-        'C': [0.1, 1.0, 10.0],
-        'kernel': ['linear', 'rbf'],
-        'gamma': ['scale', 'auto']
+        'C': [1.0],        # Reduced from [0.1, 1.0, 10.0]
+        'kernel': ['linear'],  # Reduced from ['linear', 'rbf']
+        'gamma': ['scale']     # Reduced from ['scale', 'auto']
     }
     
     # Initialize model
     svm_model = SVC(probability=True, random_state=42)
     
-    # Perform grid search
+    # Perform grid search with fewer CV folds
     grid_search = GridSearchCV(
-        svm_model, param_grid, cv=5, scoring='accuracy', n_jobs=-1
+        svm_model, param_grid, cv=3, scoring='accuracy', n_jobs=4  # Reduced CV folds and specific n_jobs
     )
     grid_search.fit(X_train, y_train)
     
@@ -192,61 +200,33 @@ def visualize_results(lr_model, rf_model, svm_model, lr_metrics, rf_metrics, svm
     lr_y_pred = lr_model.predict(X_val)
     lr_cm = plot_confusion_matrix(y_val, lr_y_pred, classes)
     lr_cm.savefig('static/lr_confusion_matrix.png')
-    lr_cm.close()
+    plt.close()
     
     # Random Forest confusion matrix
     rf_y_pred = rf_model.predict(X_val)
     rf_cm = plot_confusion_matrix(y_val, rf_y_pred, classes)
     rf_cm.savefig('static/rf_confusion_matrix.png')
-    rf_cm.close()
+    plt.close()
     
     # SVM confusion matrix
     svm_y_pred = svm_model.predict(X_val)
     svm_cm = plot_confusion_matrix(y_val, svm_y_pred, classes)
     svm_cm.savefig('static/svm_confusion_matrix.png')
-    svm_cm.close()
-    
-    # Plot feature importance for Logistic Regression
-    lr_fi = plot_feature_importance(lr_model, feature_names)
-    if lr_fi:
-        lr_fi.savefig('static/lr_feature_importance.png')
-        lr_fi.close()
+    plt.close()
     
     # Plot feature importance for Random Forest
-    rf_fi = plot_feature_importance(rf_model, feature_names)
-    if rf_fi:
+    if hasattr(rf_model, 'feature_importances_'):
+        rf_fi = plot_feature_importance(rf_model, feature_names, top_n=20)
         rf_fi.savefig('static/rf_feature_importance.png')
-        rf_fi.close()
+        plt.close()
     
-    # Save metrics plots
-    save_metrics_plot(lr_metrics, 'lr_metrics.png')
-    save_metrics_plot(rf_metrics, 'rf_metrics.png')
-    save_metrics_plot(svm_metrics, 'svm_metrics.png')
-    
-    # Model comparison
+    # Compare model performance
     models = ['Logistic Regression', 'Random Forest', 'SVM']
-    accuracy = [lr_metrics['accuracy'], rf_metrics['accuracy'], svm_metrics['accuracy']]
-    precision = [lr_metrics['precision'], rf_metrics['precision'], svm_metrics['precision']]
-    recall = [lr_metrics['recall'], rf_metrics['recall'], svm_metrics['recall']]
-    f1 = [lr_metrics['f1_score'], rf_metrics['f1_score'], svm_metrics['f1_score']]
-    
-    # Plot model comparison
-    plt.figure(figsize=(12, 8))
-    x = np.arange(len(models))
-    width = 0.2
-    
-    plt.bar(x - width*1.5, accuracy, width, label='Accuracy')
-    plt.bar(x - width/2, precision, width, label='Precision')
-    plt.bar(x + width/2, recall, width, label='Recall')
-    plt.bar(x + width*1.5, f1, width, label='F1 Score')
-    
-    plt.ylim(0, 1.0)
-    plt.ylabel('Score')
-    plt.title('Model Comparison')
-    plt.xticks(x, models)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig('static/model_comparison.png')
+    metrics_plot = save_metrics_plot(
+        models,
+        [lr_metrics, rf_metrics, svm_metrics],
+        'model_comparison.png'
+    )
     plt.close()
     
     print("Visualizations saved to 'static/' directory")
@@ -274,11 +254,12 @@ def select_best_model(lr_metrics, rf_metrics, svm_metrics):
     
     return best_model_name
 
-def main():
+def main(fast_mode=True):
     print("Starting model training...")
     
-    # Load features
-    X_train_tfidf, y_train = load_features()
+    # Load features with optional sampling for faster training
+    sample_size = 5000 if fast_mode else None
+    X_train_tfidf, y_train = load_features(sample_size)
     
     # Load feature names
     tfidf_vectorizer = joblib.load('models/tfidf_vectorizer.pkl')
@@ -303,6 +284,9 @@ def main():
     best_model = select_best_model(lr_metrics, rf_metrics, svm_metrics)
     
     print("Model training completed successfully.")
+    if fast_mode:
+        print("\nNOTE: Models were trained in fast mode with reduced parameters and data.")
+        print("For production use, set fast_mode=False in the main function call.")
 
 if __name__ == "__main__":
-    main()
+    main(fast_mode=True)  # Set to True for faster training, False for full training
